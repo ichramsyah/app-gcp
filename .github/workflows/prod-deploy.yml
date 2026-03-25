@@ -4,9 +4,8 @@ on:
   push:
     branches:
       - main
-    # Nanti pas lu mau pakai sistem Tagging buat mecah ke Server Staging, lu tinggal idupin baris ini:
-    # tags:
-    #   - 'v*'
+    tags:
+      - 'v*'
 
 env:
   REGISTRY: ghcr.io
@@ -79,12 +78,21 @@ jobs:
           # GANTI JADI 'GH_PAT' karena GITHUB_TOKEN sering kena 'permission_denied: write_package'
           password: ${{ secrets.GH_PAT }} 
 
+      - name: Set Docker Tag
+        id: docker_tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "tag=latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=staging" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push Backend Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:${{ steps.docker_tag.outputs.tag }}
 
 
   # ==========================================
@@ -108,9 +116,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GH_PAT }}
 
+      - name: Set Docker Tag
+        id: docker_tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "tag=latest,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=staging" >> $GITHUB_OUTPUT
+          fi
+
       - name: Build and push Frontend Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:${{ steps.docker_tag.outputs.tag }}
