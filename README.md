@@ -61,3 +61,4 @@ Untuk membuat rangkaian malaikat ini hidup di repositori lu, lu wajib menyelipka
 * `SONAR_TOKEN`: Token rahasia yang digenerate gratis dari dashboard SonarCloud lu.
 
 *(Catatan: Rahasia token GitHub buat mengunggah Image GHCR tak pelak lagi udah dibungkus murni dari GitHub Robot, ga butuh PAT lu lagi)*
+
