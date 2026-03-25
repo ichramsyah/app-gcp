@@ -1,0 +1,14 @@
+# Environment variables
+.env
+.env.local
+
+# Go build outputs
+backend/main
+backend/*.exe
+
+# Database data
+pgdata/
+
+# OS/Editor
+.DS_Store
+.vscode/
