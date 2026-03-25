@@ -1,0 +1,113 @@
+name: "Production Release: CI/CD Pipeline"
+
+on:
+  push:
+    branches:
+      - main
+    # Nanti pas lu mau pakai sistem Tagging buat mecah ke Server Staging, lu tinggal idupin baris ini:
+    # tags:
+    #   - 'v*'
+
+env:
+  REGISTRY: ghcr.io
+  # GitHub bakal otomatis manggil 'ichramsyah/app-gcp' lewat variabel ini
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ==========================================
+  # TAHAP 1: QUALITY GATE & SECURITY SCAN
+  # ==========================================
+  security_and_quality:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # --- SONARQUBE ANALYSIS ---
+      # Catatan: Lu butuh daftar SonarCloud dan masukin SONAR_TOKEN di GitHub Secrets
+      - name: SonarQube Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        continue-on-error: true # Ganti jadi 'false' kalo lu mau pipeline GAGAL waktu code lu buruk banget
+
+      # --- TRIVY VULNERABILITY SCAN ---
+      # Nyari kelemahan kodingan sama lib/modul yang lu pake di Backend & Frontend
+      - name: Run Trivy Scanner (Backend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './backend'
+          format: 'table'
+          # Ganti '0' jadi '1' kalo lu mau otomatis blokir rilis ke Prod klo ada error tingkat CRITICAL
+          exit-code: '0' 
+          severity: 'CRITICAL,HIGH'
+
+      - name: Run Trivy Scanner (Frontend)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: './frontend'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+
+  # ==========================================
+  # TAHAP 2: BUILD & PUSH BACKEND TO GHCR
+  # ==========================================
+  build_backend:
+    needs: security_and_quality
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Login otomatis ke GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          # GitHub otomatis bikinin token khusus buat pipeline ini, jadi ngga butuh PAT lu lagi!
+          password: ${{ secrets.GITHUB_TOKEN }} 
+
+      - name: Build and push Backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-backend:latest
+
+
+  # ==========================================
+  # TAHAP 3: BUILD & PUSH FRONTEND TO GHCR
+  # ==========================================
+  build_frontend:
+    needs: security_and_quality
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Login otomatis ke GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Frontend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-frontend:latest
