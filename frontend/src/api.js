@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080'
+  // Fallback ke '/api' buat Production biar otomatis di-handle sama Traefik Reverse Proxy
+  baseURL: import.meta.env.VITE_API_URL || '/api'
 });
 
 api.interceptors.request.use(config => {
